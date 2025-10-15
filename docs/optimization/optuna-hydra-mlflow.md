@@ -97,13 +97,14 @@ class Objective:
         preds = model.predict(X_valid)
         accuracy = accuracy_score(y_valid, preds)
 
-        mlflow.log_params(params)
-        mlflow.log_metric("accuracy", accuracy)
+        with mlflow.start_run(run_name=f"trial-{trial.number}", nested=True):
+            mlflow.log_params(params)
+            mlflow.log_metric("accuracy", accuracy)
 
         return accuracy
 ```
 
-Optuna の `Trial` オブジェクトを使って探索空間を宣言し、推定器のスコアを返しています。MLflow へのログは目的関数内で記録すると、試行結果と Run が 1 対 1 で紐づきます。
+Optuna の `Trial` オブジェクトを使って探索空間を宣言し、推定器のスコアを返しています。目的関数内で `mlflow.start_run(..., nested=True)` を使って各試行専用のサブ Run を開いておくと、MLflow 上でも試行結果と Run が 1 対 1 で紐づきます。
 
 ## 4. Hydra をエントリポイントにした実行スクリプト
 
