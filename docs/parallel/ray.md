@@ -1,61 +1,74 @@
-# Ray
+# Ray を用語から丁寧に理解する
 
-Ray は、Python アプリケーションを分散スケールさせるためのフレームワークです。Ray Core、Ray Tune、Ray Data などのサブプロジェクトを通じて、並列実行からハイパーパラメータ探索まで一貫した API を提供します。
+Ray は、Python のコードを 1 台の PC から多数のマシンにまで拡張して動かせる分散処理フレームワークです。「分散」「クラスタ」「アク
+ター」など聞き慣れない単語が多いため、ここでは一つずつ意味を説明しながら、Ray の基本機能を紹介します。
 
-## 概要
+## Ray を読み解くための用語
 
-- **主な用途**: 大規模分散実行、ハイパーパラメータ探索、強化学習、サービング
-- **アーキテクチャ**: ヘッドノードとワーカーノードで構成されるクラスタ、分散スケジューラがタスクを配布
-- **強み**: 単一ノードからクラスタまで同一コードでスケール、豊富なエコシステム (Tune, Serve, Dataset)
+| 用語 | 説明 |
+| --- | --- |
+| 分散処理 | 複数台のコンピュータをまとめて 1 つの仕事を片付ける方法。Ray はこの仕組みを簡単に扱えるようにする。 |
+| クラスタ | 分散処理に参加するコンピュータの集まり。1 台はヘッドノード（司令塔）になり、残りがワーカーノードとして働く。 |
+| スケジューラ | どのタスクをどのノードで実行するかを決める係。Ray には分散スケジューラが内蔵されている。 |
+| タスク (`@ray.remote` 関数) | Ray が遠隔で実行する最小単位の処理。Python の関数に `@ray.remote` を付けて定義する。 |
+| アクター (`@ray.remote` クラス) | 状態（インスタンス変数）を持ち続けるタスク。複数回呼び出しても同じオブジェクトが動作する。 |
+| オブジェクトストア | 計算結果を保存して共有するメモリ領域。`ray.put` で値を登録し、`ray.get` で取得する。 |
 
-## インストール
+## インストール方法
 
 ```bash
 pip install "ray[default]"
 ```
 
-- GPU を使用する場合は `pip install "ray[default]" --extra-index-url https://download.pytorch.org/whl/cu118` など環境に応じて選択
-- Kubernetes やクラスタ利用時は公式イメージを推奨
+- GPU を使う場合は CUDA 版のホイール（例: `pip install "ray[default]" --extra-index-url https://download.pytorch.org/whl/cu118`）を選びます。
+- クラスタで利用する際は Ray が提供する公式コンテナイメージや、`ray up` コマンドでのセットアップが推奨です。
 
-## クイックスタート (Ray Core)
+## ローカルで試す最小の例
 
 ```python
 import ray
 
-ray.init()
+ray.init()  # ローカルモードで Ray を開始。クラスタに接続する場合は ray.init(address="auto")。
 
-@ray.remote
+
+@ray.remote  # この関数はタスクとして別プロセスで実行される
+
 def heavy_compute(x: int) -> int:
     return x * x
 
-futures = [heavy_compute.remote(i) for i in range(10)]
-results = ray.get(futures)
+
+futures = [heavy_compute.remote(i) for i in range(10)]  # remote() はタスクを送信し、Future（後で結果が届く箱）を返す
+results = ray.get(futures)  # ray.get で Future の中身を取り出す
 print(results)
 ```
 
-- `ray.init()` でローカルモードを起動（クラスタ接続時は `address="auto"` を指定）
-- `@ray.remote` デコレータが分散タスクを表し、`.remote()` メソッドで実行
-- `ray.get()` で非同期タスクの結果を取得
+- `ray.init()` は Ray のランタイムを立ち上げる合図です。何も指定しなければローカル PC で動きます。
+- `@ray.remote` を付けた関数は通常の呼び出しでは実行されず、`.remote()` メソッド経由でタスクとしてスケジューラに送られます。
+- `ray.get` は Future（非同期の結果を表すオブジェクト）を待ち受けて、計算が終わった値を取得します。
 
-## API ハイライト
+## Ray の主なモジュール
 
-| モジュール | 主要 API | 説明 |
+| モジュール | 役割 | 典型的な用途 |
 | --- | --- | --- |
-| **ray** | `ray.init`, `ray.get`, `ray.put` | 基本的なタスク実行とオブジェクトストア操作 |
-| **ray.actor** | `@ray.remote` クラス | ステートフルなアクターを提供 |
-| **ray.tune** | `Tuner`, `TuneConfig` | ハイパーパラメータ探索フレームワーク |
-| **ray.train** | `ScalingConfig`, `Trainer` | 分散学習の共通インタフェース |
-| **ray.data** | `Dataset` | 分散データパイプライン |
+| `ray` (Ray Core) | タスクやアクターの実行、オブジェクトストアの管理を担当。 | 並列タスクの実装、長時間動作するサービスの作成。 |
+| `ray.actor` | `@ray.remote` を付けたクラスで状態を持つアクターを作成。 | キャッシュを保持するワーカーや接続を再利用するクライアント。 |
+| `ray.tune` | ハイパーパラメータ探索を自動化するモジュール。 | 機械学習モデルのパラメータ探索。 |
+| `ray.train` | PyTorch や TensorFlow などの分散学習を簡単に設定。 | 複数 GPU や複数マシンでの学習ジョブ。 |
+| `ray.data` | データの読み込みから前処理までを分散で行う。 | 大きなデータセットの ETL（抽出・変換・ロード）処理。 |
+| `ray.serve` | Python 関数を Web API として公開するサービング基盤。 | 学習済みモデルのオンライン推論。 |
 
 ## ベストプラクティス
 
-1. **リソース指定**: `@ray.remote(num_cpus=2, num_gpus=1)` でタスクごとの割り当てを明確化
-2. **オブジェクトサイズの最適化**: 共有オブジェクトストアの制限を考慮し、`ray.put` の結果を再利用
-3. **スケジューラ調整**: `ray.init(local_mode=True)` でデバッグ、`runtime_env` で依存をパッケージ化
-4. **監視**: Ray Dashboard (`ray dashboard`) でジョブ状態を可視化
-5. **耐障害性**: `max_retries` パラメータで再実行を設定し、Checkpoints を活用
+1. **リソースを明示する** – `@ray.remote(num_cpus=2, num_gpus=1)` のように書くと、タスクが必要とする CPU や GPU の数をスケジューラに
+   伝えられます。過剰に要求すると待ち行列が長くなる点に注意します。
+2. **データ転送を減らす** – 大きなオブジェクトは `ray.put` で一度だけオブジェクトストアに載せ、複数のタスクから参照すると通信量が
+   減ります。頻繁にコピーするとネットワーク帯域が足りなくなります。
+3. **開発時はローカルモードで確認** – `ray.init(local_mode=True)` とするとタスクが同期的に実行され、デバッグが容易になります。
+4. **環境を固める** – `runtime_env={"pip": ["pandas==2.1.0"]}` のように依存パッケージを指定すると、クラスタ全体で同じ環境が再現されます。
+5. **監視と再実行を設定する** – Ray Dashboard (`ray dashboard`) でタスクの状態やリソース使用量を確認し、`max_retries` で失敗タスクの再実
+   行回数を指定しましょう。
 
-## 関連リファレンス
+## さらに学ぶためのリンク
 
 - 公式ドキュメント: <https://docs.ray.io/en/latest/>
 - Ray Core チュートリアル: <https://docs.ray.io/en/latest/ray-core/walkthrough.html>
