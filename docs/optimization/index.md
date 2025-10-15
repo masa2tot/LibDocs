@@ -14,7 +14,7 @@
 ## 本セクションの読み方
 
 1. `optuna-hydra-mlflow.md` では、Optuna を例に「探索・設定・記録」の役割がどのように分担されるかを解説します。
-2. まずは Hydra や OmegaConf で設定を柔軟に扱えるようにし、試行中に必要な値だけをコピーして書き換える手順を押さえましょう。Hydra そのものの API は [構成・制御/ Hydra](/config/hydra/) を参照してください。
-3. 実験の過程や結果を残す仕組みとして MLflow を紹介します。Tracking サーバーの用語や運用手順は [記録・再現 / MLflow Tracking](/tracking/mlflow-tracking/) に詳しい解説があります。
+2. まずは Hydra や OmegaConf で設定を柔軟に扱えるようにし、試行中に必要な値だけをコピーして書き換える手順を押さえましょう。Hydra そのものの API は [構成・制御/ Hydra](../config/hydra.md) を参照してください。
+3. 実験の過程や結果を残す仕組みとして MLflow を紹介します。Tracking サーバーの用語や運用手順は [記録・再現 / MLflow Tracking](../tracking/mlflow-tracking.md) に詳しい解説があります。
 
 探索アルゴリズムの選び方（ベイズ最適化、グリッド探索など）や並列実行の基本についても順次追加予定です。まずは基礎用語と役割分担を押さえ、どのライブラリをどの責務に当てるのかを明確にしておきましょう。
