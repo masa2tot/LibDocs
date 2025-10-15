@@ -138,6 +138,22 @@ Hydra は実行のたびに `outputs/DATE/TIME/` を作成し、その中に `.h
 | `HydraConfigException: Config is read-only` | 実行時に `cfg` を直接書き換えている。`OmegaConf.to_container(cfg, resolve=True)` でコピーしてから編集する。 |
 | 出力ディレクトリが散らかる | `hydra.run.dir=.` を指定するとカレントディレクトリで実行できるが、基本は `outputs/` を活用し `.gitignore` に登録する。 |
 
+### エラーの全文を取得したい
+
+Hydra の例外では、省略表示されたスタックトレースの末尾に「`Set the environment variable HYDRA_FULL_ERROR=1 for a complete stack trace.`」という案内が必ず付きます。繰り返し表示されて煩わしい場合は、以下のように環境変数を事前に設定しておくと最初からフルスタックトレースが表示され、原因の特定が容易になります。
+
+```bash
+# Linux / macOS
+export HYDRA_FULL_ERROR=1
+python train.py
+
+# Windows (PowerShell)
+$Env:HYDRA_FULL_ERROR = "1"
+python train.py
+```
+
+一時的に切り替えたい場合は、コマンドの前に `HYDRA_FULL_ERROR=1 python train.py` と書いても同じ効果が得られます。設定済みの状態であれば、`object_type=dict` のような Hydra 固有の例外メッセージも元の Python 例外とあわせて確認できます。
+
 ## ベストプラクティスまとめ
 
 1. **設定の最小単位を小さく保つ** – `defaults` の 1 行が 1 つの責務を持つように YAML を分割すると差し替えが簡単になります。
