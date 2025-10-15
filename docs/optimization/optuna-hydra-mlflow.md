@@ -1,28 +1,182 @@
-# Optuna × Hydra × MLflow の役割整理
+# Optuna × Hydra × MLflow を組み合わせた実践ワークフロー
 
-Hydra をエントリポイントに据え、Optuna でハイパーパラメータ探索を行いながら MLflow へ結果を記録するワークフローは、研究・実務どちらでも使われる組み合わせです。ここでは、それぞれのライブラリが担う責務と、試行ごとに設定を調整する際の考え方を専門用語の解説付きでまとめます。
+Hydra をエントリポイントに据え、Optuna でハイパーパラメータ探索を回しながら MLflow へ結果を残す構成は、機械学習プロジェクトでよく使われる定番パターンです。ここでは実際にコードを書きながら、3 つのライブラリがどのように連携するのかを順を追って確認します。
 
-## Hydra と OmegaConf: 設定を安全にコピーする
+## 1. 必要なライブラリとディレクトリ構成
 
-- `@hydra.main` デコレータを付けた関数は、コマンドライン引数や設定ファイルを自動で読み込み、`DictConfig` として渡します。Hydra の基本的な使い方は [構成・制御 / Hydra](../config/hydra.md) で紹介しているとおりです。
-- Hydra が返す `DictConfig` は原則として読み取り専用なので、試行ごとに値を書き換えるときは `OmegaConf.to_container(cfg, resolve=True)` で通常の辞書に変換し、`OmegaConf.create` で新しい設定オブジェクトを生成します。この手順は [OmegaConf 逆引き](../config/omegaconf.md) でも副作用を避ける方法として解説しています。
-- GPU を切り替えたり補間を評価した状態で値を確定させたい場合も、コピーした設定に対して `tc.runtime.device` のように書き込むと安全です。元の `cfg` を直接変更すると、Hydra が保持する履歴と食い違う原因になります。
+1. 依存関係をまとめた `requirements.txt` を用意します。
 
-## Optuna: 試行 (Trial) と探索空間の定義
+   ```text
+   hydra-core==1.3.2
+   optuna==3.6.1
+   mlflow==2.12.1
+   scikit-learn==1.4.2
+   ```
 
-- Optuna の `Trial` オブジェクトは 1 回の評価を指し、`suggest_float` や `suggest_categorical` で探索空間を宣言します。試行番号 (`trial.number`) を活用すると、GPU の割り当てや出力先フォルダ名など、実行環境に応じた制御が可能です。
-- `create_study` で生成した `Study` は全試行の履歴とベストスコアを保持し、`optimize` の `n_jobs` 引数により並列試行ができます。GPU 数が限られる場合は `torch.cuda.device_count()` で物理的な上限を調べ、必要に応じて `min(req_n_jobs, max(1, gpu_count))` のように計画的に調整します。
-- 試行ごとの戻り値には評価指標（例: RMSE）のように最適化したいスカラー値を返します。Study の `best_params` や `best_value` は最後にまとめて参照できるので、結果をファイルへ保存したり外部へ通知するタイミングを自由に設計できます。
+2. プロジェクトの雛形を以下のように整えます。
 
-## MLflow: 実験ログの整理
+   ```text
+   my_project/
+   ├── configs/
+   │   └── config.yaml
+   ├── scripts/
+   │   └── objective.py
+   └── main.py
+   ```
 
-- MLflow では Tracking URI と Experiment 名を先に設定しておくと、試行結果が正しいフォルダへまとまります。[MLflow Tracking を言葉から理解する](../tracking/mlflow-tracking.md) にある用語集を参考に、Run / Experiment / Artifact などの役割を押さえておきましょう。
-- `mlflow.start_run` はコンテキストマネージャとして振る舞い、ブロック内で `log_params` や `log_metrics` を呼び出すと自動で Run に紐づきます。Optuna の試行を記録するときは Run 名に試行番号を含めると、どの組み合わせがどの結果を生んだか追跡しやすくなります。
-- ハイパーパラメータ検索全体をまとめる親 Run を作り、その中で各試行をネストした Run として残す構成にすると、MLflow UI 上で探索全体の概要と個別試行を同時に振り返ることができます。成果物（例: JSON のサマリーや可視化画像）は `log_artifact` で保存し、後から再現性を担保できるようにしましょう。
+Hydra は `configs/` 配下の YAML を読み込み、Optuna は `objective.py` に定義した目的関数を繰り返し呼び出し、MLflow は `main.py` からログを受け取る、という役割分担を意識すると設計がしやすくなります。
 
-## 実行リソースと成果物の後処理
+## 2. Hydra で設定を管理する
 
-- GPU が無い環境では CPU 実行へフォールバックし、`pin_memory` や `non_blocking` のような転送設定は False にするのが一般的です。GPU が存在するときのみ True に切り替えることで、不要な設定ミスを防げます。
-- 探索結果をファイルにまとめる際は `Path` オブジェクトで出力先ディレクトリを日付ごとに作成し、Study のサマリー (`best_params`, `best_value`, `n_trials`) を JSON などの読みやすい形式で保存します。保存したファイルを MLflow のアーティファクトとしてアップロードすれば、Run の履歴と一緒に参照できます。
+`configs/config.yaml` では、データセットやモデル、Optuna の探索条件を整理します。Hydra の設定は辞書風に書けるので、試行ごとに上書きしたい値をまとめておきます。
 
-これらの役割分担を意識すると、「設定を用意する」「探索を回す」「結果を残す」という 3 つの作業が明確になり、複雑なハイパーパラメータ探索でも事故が起きにくくなります。
+```yaml
+dataset:
+  test_size: 0.2
+  random_state: 42
+
+model:
+  class_path: sklearn.ensemble.RandomForestClassifier
+  n_estimators: 100
+  max_depth: null
+
+optuna:
+  direction: maximize
+  n_trials: 10
+  timeout: null
+
+mlflow:
+  tracking_uri: file:./mlruns
+  experiment_name: hydra-optuna-tutorial
+```
+
+Hydra の `DictConfig` は基本的に読み取り専用です。Optuna の試行内で値を変更するときは `OmegaConf.to_container(cfg, resolve=True)` で通常の辞書に変換したうえでコピーを作成すると安全です。詳しくは [構成・制御 / Hydra](../config/hydra.md) と [OmegaConf 逆引き](../config/omegaconf.md) を参照してください。
+
+## 3. Optuna の目的関数を作る
+
+`scripts/objective.py` に、Hydra の設定を受け取りつつ試行ごとのハイパーパラメータを定義する関数を実装します。ここでは scikit-learn のランダムフォレストを例にします。
+
+```python
+from dataclasses import dataclass
+from typing import Any, Dict
+
+import mlflow
+import optuna
+from omegaconf import DictConfig, OmegaConf
+from sklearn.datasets import load_breast_cancer
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score
+from sklearn.model_selection import train_test_split
+
+
+@dataclass
+class Objective:
+    cfg: DictConfig
+
+    def __call__(self, trial: optuna.Trial) -> float:
+        # 設定をコピーして安全に書き換えられるようにする
+        cfg = OmegaConf.create(OmegaConf.to_container(self.cfg, resolve=True))
+
+        params: Dict[str, Any] = {
+            "n_estimators": trial.suggest_int("n_estimators", 50, 300),
+            "max_depth": trial.suggest_int("max_depth", 3, 12),
+            "min_samples_split": trial.suggest_int("min_samples_split", 2, 10),
+        }
+
+        data = load_breast_cancer()
+        X_train, X_valid, y_train, y_valid = train_test_split(
+            data.data,
+            data.target,
+            test_size=cfg.dataset.test_size,
+            random_state=cfg.dataset.random_state,
+        )
+
+        model = RandomForestClassifier(**params, n_jobs=-1, random_state=cfg.dataset.random_state)
+        model.fit(X_train, y_train)
+
+        preds = model.predict(X_valid)
+        accuracy = accuracy_score(y_valid, preds)
+
+        mlflow.log_params(params)
+        mlflow.log_metric("accuracy", accuracy)
+
+        return accuracy
+```
+
+Optuna の `Trial` オブジェクトを使って探索空間を宣言し、推定器のスコアを返しています。MLflow へのログは目的関数内で記録すると、試行結果と Run が 1 対 1 で紐づきます。
+
+## 4. Hydra をエントリポイントにした実行スクリプト
+
+続いて `main.py` を用意し、Hydra から設定を読み込みつつ Optuna と MLflow を初期化します。
+
+```python
+from pathlib import Path
+
+import hydra
+import mlflow
+import optuna
+from omegaconf import DictConfig
+
+from scripts.objective import Objective
+
+
+@hydra.main(version_base=None, config_path="configs", config_name="config")
+def main(cfg: DictConfig) -> None:
+    mlflow.set_tracking_uri(cfg.mlflow.tracking_uri)
+    mlflow.set_experiment(cfg.mlflow.experiment_name)
+
+    objective = Objective(cfg)
+
+    with mlflow.start_run(run_name="random-forest-search"):
+        study = optuna.create_study(direction=cfg.optuna.direction)
+        study.optimize(objective, n_trials=cfg.optuna.n_trials, timeout=cfg.optuna.timeout)
+
+        mlflow.log_params(study.best_params)
+        mlflow.log_metric("best_value", study.best_value)
+
+        # まとめて振り返るための成果物を保存
+        summary_path = Path("study_summary.txt")
+        summary_path.write_text(str(study.best_trial))
+        mlflow.log_artifact(summary_path)
+
+        print("Best params:", study.best_params)
+        print("Best value:", study.best_value)
+
+
+if __name__ == "__main__":
+    main()
+```
+
+上記のように、Hydra が設定を管理し、Optuna が探索を、MLflow がログを担当します。親 Run (`random-forest-search`) の中で各試行が自動的にサブ Run として保存され、後から UI で比較できます。
+
+## 5. 実行と確認
+
+1. 事前に MLflow のバックエンドディレクトリを作っておきます。
+
+   ```bash
+   mkdir -p mlruns
+   ```
+
+2. Hydra スクリプトを実行します。
+
+   ```bash
+   python main.py optuna.n_trials=20
+   ```
+
+   コマンドライン引数で `optuna.n_trials` を上書きできるのが Hydra の利点です。他にも `model.max_depth=5` のように細かく調整できます。
+
+3. 最適なハイパーパラメータとスコアが標準出力に表示され、`mlruns/` 配下に結果が保存されます。MLflow UI で確認したい場合は次のコマンドを使います。
+
+   ```bash
+   mlflow ui --backend-store-uri file:./mlruns
+   ```
+
+   ブラウザで <http://127.0.0.1:5000> を開くと、各試行のパラメータとメトリクスを一覧で確認できます。
+
+## 6. よくある実践的な工夫
+
+- **GPU の有無で挙動を切り替える**: PyTorch など GPU 対応ライブラリを使う場合、`torch.cuda.is_available()` で確認し、利用可能なデバイス数に応じて `optuna.Study.optimize(n_jobs=...)` を調整します。
+- **成果物をまとめて残す**: 推論結果や可視化をファイルとして保存し、`mlflow.log_artifact` で Run に添付しておくと後から再現しやすくなります。`Path("artifacts")` のようにディレクトリを切っておくと整理が楽です。
+- **失敗した試行を可視化する**: Optuna の `Study.trials_dataframe()` を呼び出して DataFrame として保存し、MLflow へアップロードすると、後から試行全体の傾向を分析できます。
+
+このワークフローを使うと「設定を安全に管理する (Hydra)」「探索ロジックをカプセル化する (Optuna)」「結果を一元管理する (MLflow)」の 3 点が明確になり、再現性と可視性を両立したハイパーパラメータ探索を実現できます。
