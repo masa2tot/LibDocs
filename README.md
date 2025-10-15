@@ -33,14 +33,27 @@ LibDocs は、機械学習研究で頻用される公式ライブラリの実践
 ## ローカルでのプレビュー
 
 ```bash
-pip install mkdocs mkdocs-material
+pip install -r requirements.txt
 mkdocs serve
 ```
 
 ブラウザで <http://127.0.0.1:8000/> を開くとライブリロード付きで確認できます。
 
+## 公開と自動デプロイ
+
+- GitHub Pages での公開 URL: <https://<github-username>.github.io/LibDocs/>（`<github-username>` は自分のアカウント名に置き換えてください）
+- GitHub Actions のワークフロー (`.github/workflows/deploy-mkdocs.yml`) が `main` ブランチへのプッシュをトリガーにサイトをビルドし、`gh-pages` ブランチ経由で公開します。
+- GitHub 側では **Settings → Pages** で "Source" を "GitHub Actions" に設定してください。
+
+ワークフローをローカルで検証するには、次のコマンドで静的サイトをビルドします。
+
+```bash
+pip install -r requirements.txt
+mkdocs build --strict
+```
+
 ## 今後の拡張
 
 - 設定管理（Hydra / OmegaConf）や追跡（MLflow）など、他レイヤのセクションを順次追加
 - 各ライブラリごとのサンプルコードや実験テンプレートを `examples/` として公開予定
-- 自動デプロイ（GitHub Pages など）用の CI/CD パイプラインを整備
+- プレビュー用ブランチやバージョン別公開など、GitHub Pages を活用した運用フローを強化

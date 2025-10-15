@@ -1,6 +1,7 @@
 site_name: LibDocs
 site_description: "機械学習研究のための公式ライブラリ解説"
-site_url: ""
+# Replace `<github-username>` with the actual GitHub account that hosts the repository.
+site_url: "https://<github-username>.github.io/LibDocs/"
 nav:
   - ホーム: index.md
   - 構成・制御:
