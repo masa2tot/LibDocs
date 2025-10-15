@@ -75,6 +75,24 @@ python main.py --multirun task=alpha,beta,gamma
 | `hydra.core.hydra_config.HydraConfig` | 実行時のメタ情報（作業ディレクトリなど）を参照できる。 | ログの保存先をプログラム内で確認したいときに便利。 |
 | `hydra.multirun` | CLI から複数ジョブを起動するフラグ。 | シングルランに戻すときは `-m` を外して実行する。 |
 
+### Joblib Launcher の代表的な設定例
+
+Hydra で Joblib Launcher を使うときによく見かける設定スニペットを分解してみましょう。
+
+```yaml
+_target_: hydra_plugins.hydra_joblib_launcher.joblib_launcher.JoblibLauncher
+n_jobs: -1
+backend: loky
+prefer: processes
+```
+
+- `_target_: hydra_plugins.hydra_joblib_launcher.joblib_launcher.JoblibLauncher` – Hydra は `_target_` に指定されたクラスをインスタンス化して Launcher として利用します。ここでは Joblib を使った並列実行を提供する公式実装を選択しています。
+- `n_jobs: -1` – 起動するワーカープロセス（またはスレッド）の数です。`-1` に設定すると、利用可能な CPU コアをすべて使って最大限の並列度を確保します。
+- `backend: loky` – Joblib の並列化方式を指定します。`loky` はプロセスベースで CPU 集約タスクに適しており、Joblib Launcher で最も一般的に使われるバックエンドです。
+- `prefer: processes` – Joblib に対してプロセス方式を優先するよう指示します。各ジョブを独立したプロセスで動かし、メモリ分離を保ちたい場合に便利です。
+
+Hydra の `--multirun` などで複数の実験を同時に走らせる際には、この設定を `conf/hydra/launcher/joblib.yaml` のようなファイルに保存しておくと、マシンのスペックに応じて `n_jobs` だけ調整しながら同じ並列化ポリシーを再利用できます。
+
 ## ベストプラクティス
 
 1. **設定ファイルを分割する** – `conf/hydra/launcher/joblib.yaml` のように、Launcher 固有の設定を別ファイルに分けると再利用しやすくなり
