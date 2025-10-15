@@ -1,6 +1,6 @@
 # LibDocs
 
-LibDocs は、機械学習研究で頻用される公式ライブラリの実践的な使い方をまとめた MkDocs ベースのドキュメントサイトです。レイヤ構造と並列実行の観点から技術を体系化し、公式ドキュメントに準じた解説を提供します。
+LibDocs は、機械学習研究で頻用される公式ライブラリの実践的な使い方をまとめた MkDocs ベースのドキュメントサイトです。レイヤ構造と並列実行の観点から技術を体系化し、公式ドキュメントに準じた解説を提供します。公開サイトは <https://masa2tot.github.io/LibDocs/> から閲覧できます。
 
 ## ディレクトリ構成
 
@@ -41,7 +41,7 @@ mkdocs serve
 
 ## 公開と自動デプロイ
 
-- GitHub Pages での公開 URL: <https://<github-username>.github.io/LibDocs/>（`<github-username>` は自分のアカウント名に置き換えてください）
+- GitHub Pages での公開 URL: <https://masa2tot.github.io/LibDocs/>
 - GitHub Actions のワークフロー (`.github/workflows/deploy-mkdocs.yml`) が `main` ブランチへのプッシュをトリガーにサイトをビルドし、`gh-pages` ブランチ経由で公開します。
 - GitHub 側では **Settings → Pages** で "Source" を "GitHub Actions" に設定してください。
 
