@@ -1,0 +1,23 @@
+site_name: LibDocs
+site_description: "機械学習研究のための公式ライブラリ解説"
+site_url: ""
+nav:
+  - ホーム: index.md
+  - 並列実行:
+      - ガイド: parallel/index.md
+      - multiprocessing: parallel/multiprocessing.md
+      - Joblib: parallel/joblib.md
+      - Ray: parallel/ray.md
+      - Hydra Launchers: parallel/hydra-launcher.md
+theme:
+  name: material
+  language: ja
+markdown_extensions:
+  - admonition
+  - codehilite
+  - toc:
+      permalink: true
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/
