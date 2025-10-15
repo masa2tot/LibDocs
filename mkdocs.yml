@@ -27,7 +27,9 @@ nav:
       - uv: structure/uv.md
       - venv: structure/venv.md
       - Hydra Runner: structure/hydra-runner.md
+      - Talk to My Docs Agents: structure/talk-to-my-docs-agents.md
       - DataRobot Agent Templates: structure/datarobot-agent-templates.md
+
 theme:
   name: material
   language: ja
