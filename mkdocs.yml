@@ -8,6 +8,9 @@ nav:
       - ガイド: config/index.md
       - Hydra: config/hydra.md
       - OmegaConf: config/omegaconf.md
+  - 探索・最適化:
+      - ガイド: optimization/index.md
+      - Optuna × Hydra × MLflow: optimization/optuna-hydra-mlflow.md
   - 並列実行:
       - ガイド: parallel/index.md
       - multiprocessing: parallel/multiprocessing.md
