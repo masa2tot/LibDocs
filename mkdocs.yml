@@ -3,6 +3,10 @@ site_description: "機械学習研究のための公式ライブラリ解説"
 site_url: ""
 nav:
   - ホーム: index.md
+  - 構成・制御:
+      - ガイド: config/index.md
+      - Hydra: config/hydra.md
+      - OmegaConf: config/omegaconf.md
   - 並列実行:
       - ガイド: parallel/index.md
       - multiprocessing: parallel/multiprocessing.md
