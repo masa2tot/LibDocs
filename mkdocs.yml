@@ -9,6 +9,11 @@ nav:
       - Joblib: parallel/joblib.md
       - Ray: parallel/ray.md
       - Hydra Launchers: parallel/hydra-launcher.md
+  - 記録・再現:
+      - ガイド: tracking/index.md
+      - MLflow Tracking: tracking/mlflow-tracking.md
+      - MLflow Projects: tracking/mlflow-projects.md
+      - MLflow Model Registry: tracking/mlflow-model-registry.md
 theme:
   name: material
   language: ja
