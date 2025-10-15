@@ -30,7 +30,7 @@ graph TD
 
 ### テンプレート例: Talk to My Docs Agents
 
-DataRobot コミュニティが公開している [Talk to My Docs Agents テンプレート](talk-to-my-docs-agents.md) では、CrewAI によるマルチエージェント、FastAPI バックエンド、React/Vite フロントエンド、Pulumi を活用した IaC を 1 リポジトリにまとめています。複数ストレージにある文書へ会話的にアクセスするユースケースで、環境構築から OAuth 連携までの実践的な流れを確認したいときに役立ちます。
+DataRobot コミュニティが公開している [Talk to My Docs Agents テンプレート](../datarobot/talk-to-my-docs-agents.md) では、CrewAI によるマルチエージェント、FastAPI バックエンド、React/Vite フロントエンド、Pulumi を活用した IaC を 1 リポジトリにまとめています。複数ストレージにある文書へ会話的にアクセスするユースケースで、環境構築から OAuth 連携までの実践的な流れを確認したいときに役立ちます。
 
 ## 参考資料
 
