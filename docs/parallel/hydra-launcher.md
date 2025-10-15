@@ -1,26 +1,32 @@
-# Hydra Launchers
+# Hydra Launchers をわかりやすく解説
 
-Hydra は設定駆動の実験管理フレームワークであり、`hydra.launcher` プラグインを通じて並列ジョブの実行基盤を切り替えられます。ここでは Joblib Launcher を例に、設定方法と拡張ポイントを解説します。
+Hydra は設定ファイルを中心にプログラムを実行するフレームワークで、`--multirun` オプションを使うと同じスクリプトを複数パターンで
+繰り返し実行できます。並列実行の仕組みはプラグイン「Launcher」が担いますが、名前だけでは役割が分かりにくいので、用語を説明しな
+がら導入方法をまとめます。ここでは最も身近な Joblib Launcher を例にします。
 
-## 概要
+## Hydra Launcher に出てくる用語
 
-- **主な用途**: Hydra の `multirun` 機能で複数ジョブを並列起動
-- **仕組み**: `hydra.launcher` セクションで指定したクラスが `Launchers` API を実装し、ジョブをスケジューリング
-- **強み**: 設定ファイルからワーカー数やバックエンドを制御、クラスタ向けプラグイン（Ray、Submitit など）との互換性
+| 用語 | 説明 |
+| --- | --- |
+| Hydra | Facebook（現 Meta）が開発した設定管理フレームワーク。Python スクリプトに設定ファイルを読み込ませやすくする。 |
+| コンフィグ（設定ファイル） | YAML 形式のテキストファイル。`defaults` セクションで使用するコンポーネントを切り替えられる。 |
+| Launcher | Hydra が複数ジョブを実行するときに、どのように並列化するかを決めるプラグイン。Joblib や Ray など複数種類がある。 |
+| ジョブ | Hydra が 1 回プログラムを実行する単位。`--multirun` で複数のジョブをまとめて起動できる。 |
+| 作業ディレクトリ | 各ジョブの結果やログを保存するフォルダ。Hydra が自動で分けて作成する。 |
 
-## インストール
+## 必要なパッケージのインストール
 
 ```bash
 pip install hydra-core joblib
-pip install hydra-joblib-launcher  # Joblib バックエンドを利用する場合
+pip install hydra-joblib-launcher  # Joblib バックエンドを使うとき
 ```
 
-- Ray や Submitit など他のバックエンドは対応するプラグインを追加
-- `hydra-core` 1.3 以上を推奨
+- Hydra 本体は `hydra-core` パッケージに含まれています。バージョン 1.3 以上を推奨します。
+- Ray や Submitit など別のバックエンドを使いたいときは、それぞれのプラグイン（`hydra-ray-launcher` など）を追加します。
 
-## クイックスタート
+## 最小構成のサンプル
 
-`conf/config.yaml`:
+`conf/config.yaml` を次のように作ります。`defaults` で Joblib Launcher を読み込み、並列数を設定しています。
 
 ```yaml
 defaults:
@@ -29,11 +35,11 @@ defaults:
 hydra:
   launcher:
     joblib:
-      n_jobs: 4
-      prefer: processes
+      n_jobs: 4  # 同時に走らせるジョブ数
+      prefer: processes  # プロセス方式を使う。I/O が多い場合は threading を選べる
 ```
 
-`main.py`:
+`main.py` は Hydra のエントリーポイントを用意します。
 
 ```python
 import hydra
@@ -44,39 +50,46 @@ from omegaconf import DictConfig
 def main(cfg: DictConfig) -> None:
     print(cfg.task)
 
+
 if __name__ == "__main__":
     main()
 ```
 
-実行:
+コマンドラインから `--multirun` を付けて実行すると、複数のジョブが並列に走ります。
 
 ```bash
 python main.py --multirun task=alpha,beta,gamma
 ```
 
-- `n_jobs` で並列ジョブ数を指定
-- Hydra が各ジョブを独立した作業ディレクトリに分離しログを管理
+- `task=alpha,beta,gamma` の指定はコンマ区切りで複数値を渡す Hydra の表記です。3 つのジョブが順番にスケジュールされます。
+- 実行するとカレントディレクトリに `multirun/` フォルダが作られ、それぞれのジョブに専用サブフォルダが割り当てられます。ログや結果ファ
+  イルは自動的に分離されるため、混同しません。
 
-## API ハイライト
+## よく使う API と設定
 
-| コンポーネント | 説明 |
-| --- | --- |
-| `hydra.launcher.Launcher` | 全プラグインが実装する抽象基底クラス |
-| `hydra_plugins.hydra_joblib_launcher.JoblibLauncher` | Joblib バックエンドを提供 |
-| `hydra.utils.instantiate` | コンフィグから Launcher を生成 |
-| `hydra.core.hydra_config.HydraConfig` | 実行時の Hydra メタ情報 |
-| `hydra.multirun` | CLI でのマルチラン制御フラグ |
+| コンポーネント | 役割 | ヒント |
+| --- | --- | --- |
+| `hydra.launcher.Launcher` | すべての Launcher プラグインが継承する抽象クラス。 | 新しい実行基盤を作りたい場合はこのクラスを実装する。 |
+| `hydra_plugins.hydra_joblib_launcher.JoblibLauncher` | Joblib を使ってプロセスを生成する既存実装。 | `n_jobs` や `prefer` でプロセス・スレッドを切り替える。 |
+| `hydra.utils.instantiate` | コンフィグに書かれたクラスを生成する補助関数。 | Launchers 以外にも、モデルやデータローダの生成で使える。 |
+| `hydra.core.hydra_config.HydraConfig` | 実行時のメタ情報（作業ディレクトリなど）を参照できる。 | ログの保存先をプログラム内で確認したいときに便利。 |
+| `hydra.multirun` | CLI から複数ジョブを起動するフラグ。 | シングルランに戻すときは `-m` を外して実行する。 |
 
 ## ベストプラクティス
 
-1. **設定の分離**: `conf/hydra/launcher/joblib.yaml` を用意し、上書き設定をモジュール化
-2. **バックエンド切り替え**: 開発時は `joblib`、分散実行時は `ray` や `submitit` へ差し替え
-3. **リソース制御**: Joblib バックエンドでは `backend` と `prefer` を指定し CPU/IO に応じた戦略を選択
-4. **ログ管理**: Hydra の `hydra.run.dir` を明示指定し、成果物の保存先を統一
-5. **クラスタ統合**: Submitit Launcher では SLURM、Ray Launcher では Ray クラスタに接続するなど、既存インフラに合わせてプラグインを採用
+1. **設定ファイルを分割する** – `conf/hydra/launcher/joblib.yaml` のように、Launcher 固有の設定を別ファイルに分けると再利用しやすくなり
+   ます。
+2. **バックエンドを状況で切り替える** – 開発時は軽量な Joblib Launcher、本番ではクラスタ対応の Ray Launcher など、`defaults` を差し替
+   えるだけで切り替えられます。
+3. **リソースの上限を把握する** – Joblib Launcher の `n_jobs` は使用するプロセス数です。マシンの CPU コア数を超えると性能が低下する
+   ことがあるため、`os.cpu_count()` を参考に設定してください。
+4. **成果物ディレクトリを明示する** – `hydra.run.dir` や `hydra.sweep.dir` を設定すると、ジョブの出力先が予測しやすくなります。後で結果
+   を分析するときの迷子を防げます。
+5. **プラグインごとの制約を確認する** – Submitit Launcher は SLURM のジョブキューと連携するなど、それぞれのプラグインに前提条件があ
+   ります。ドキュメントを読み、必要な権限や設定ファイルを揃えてから使用しましょう。
 
-## 関連リファレンス
+## 参考リンク
 
-- 公式ドキュメント: <https://hydra.cc/docs/advanced/launcher_plugins/>
-- Joblib Launcher: <https://hydra.cc/docs/plugins/submitit_launcher/#joblib-launcher>
-- Hydra Configs リポジトリ: <https://github.com/facebookresearch/hydra/tree/main/plugins>
+- Launcher プラグインの概要: <https://hydra.cc/docs/advanced/launcher_plugins/>
+- Joblib Launcher のドキュメント: <https://hydra.cc/docs/plugins/submitit_launcher/#joblib-launcher>
+- Hydra 公式リポジトリ: <https://github.com/facebookresearch/hydra/tree/main/plugins>
