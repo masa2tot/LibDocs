@@ -14,6 +14,11 @@ nav:
       - MLflow Tracking: tracking/mlflow-tracking.md
       - MLflow Projects: tracking/mlflow-projects.md
       - MLflow Model Registry: tracking/mlflow-model-registry.md
+  - 構造的管理:
+      - ガイド: structure/index.md
+      - uv: structure/uv.md
+      - venv: structure/venv.md
+      - Hydra Runner: structure/hydra-runner.md
 theme:
   name: material
   language: ja
